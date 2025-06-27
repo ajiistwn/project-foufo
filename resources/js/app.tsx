@@ -29,12 +29,12 @@ createInertiaApp({
 
        // Tampilkan notifikasi jika ada flash message
        if (flash?.success) {
-            console.log('Success Message:', flash.success); // Debugging
+            // console.log('Success Message:', flash.success); // Debugging
             toast.success(flash.success);
         }
 
         if (flash?.error) {
-            console.log('Error Message:', flash.error); // Debugging
+            // console.log('Error Message:', flash.error); // Debugging
             toast.error(flash.error);
         }
 
@@ -45,7 +45,7 @@ createInertiaApp({
                 <App {...props} />
                 <ToastContainer
                     position="top-center"
-                    autoClose={5000}
+                    autoClose={4000}
                     hideProgressBar={true}
                     newestOnTop={true}
                     closeOnClick

@@ -4,8 +4,6 @@ import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 // import Image from 'next/image';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-// import React from 'react';
-
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -23,7 +21,6 @@ export default function Home() {
                 <section className="mb-5 h-62" style={{ backgroundImage: `url('https://picsum.photos/seed/${Math.random()}/1200/400')` }}>
 
                 </section>
-
                 {/* Content Section */}
                 <div className="container mx-auto lg:p-5">
                     {/* About Project */}

@@ -4,7 +4,20 @@ import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-// import { MoreHorizontal } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+
+} from "@/components/ui/dropdown-menu"; // Shadcn Dropdown
+import { Badge } from "@/components/ui/badge"; // Shadcn Badge
+import { DropdownMenu } from "@/components/ui/dropdown-menu"; // Shadcn Dropdown
+import { CheckIcon, Filter } from "lucide-react";
+import { useEffect } from 'react';
+import axios from 'axios';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -15,7 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const data: { section: string; items: { title: string; group: string; image: string; }[]; }[] = [
     {
-    section: "Production",
+    section: "Producer",
     items: [
         {
             title: "Ricky",
@@ -66,32 +79,156 @@ const data: { section: string; items: { title: string; group: string; image: str
     },
 ];
 
+
+
 export default function Crewandcast() {
+    // State
+    const [crewAndCasts, setCrewAndCasts] = useState([]);
+    // const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        // URL API aplikasi inti
+        const apiUrl = 'http://localhost:8000/api/crew-and-casts';
+
+        // Ambil data dari API
+        axios.get(apiUrl)
+            .then((response) => {
+                console.log('Data dari API:', response.data); // Console log data
+                setCrewAndCasts(response.data); // Simpan data ke state
+                console.log('Crew and Casts:', crewAndCasts); // Console log state crewAndCasts
+                // setLoading(false);
+            })
+            .catch((err) => {
+                console.error('Error fetching data:', err);
+                setError(err.message);
+                console.error('Error message:', error); // Console log error message
+                // setLoading(false);
+            });
+    }, []);
+
+
+    const [filters, setFilters] = useState({
+        producer: false,
+        crew: false,
+        cast: false,
+    });
+
+    // Handler untuk mengubah state checkbox
+    interface Filters {
+        producer: boolean;
+        crew: boolean;
+        cast: boolean;
+    }
+
+    const handleCheckboxChange = (filterName: keyof Filters): void => {
+        setFilters((prevFilters: Filters) => ({
+            ...prevFilters,
+            [filterName]: !prevFilters[filterName],
+        }));
+    };
+
+        // Handler untuk reset semua filter
+    const resetFilters = () => {
+            setFilters({
+            producer: false,
+            crew: false,
+            cast: false,
+        });
+    };
+
+    const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Crew and Cast" />
             <div className=" min-h-screen py-4 px-6 space-y-6">
                 <div className="flex justify-between items-center mb-4">
-                    <Button className="bg-purple-600 text-white px-4 py-2 rounded-md  flex items-center">
-                        {/* <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" />
-                        </svg> */}
-                        <span>Add Crew</span>
-                    </Button>
+                <Button className="bg-purple-600 text-white px-4 py-2 rounded-md  flex items-center">
+                    {/* <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" />
+                    </svg> */}
+                    <span>Add Crew</span>
+                </Button>
 
                     {/* Search and Filter */}
                 </div>
-                <div className="flex w-full gap-2">
+                <div className="flex w-full gap-1 justify-between mb-4">
                     <input
                         type="text"
                         placeholder="Search"
-                        className=" px-2 py-2 rounded-lg focus:outline-none focus:ring focus:border-blue-600 border-2 w-[60%]"
+                        className=" px-2 py-2 rounded-lg focus:outline-none focus:ring focus:border-blue-600 border-2 w-[100%]"
                     />
-                    <select className=" px-2 py-2 rounded-lg focus:outline-none focus:ring focus:border-blue-600 border-2 w-[40%]" >
-                        <option value="">Filter</option>
-                        <option value="production">Production</option>
-                        <option value="post-production">Post-Production</option>
-                    </select>
+
+                    <DropdownMenu>
+                        {/* Trigger untuk membuka dropdown */}
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className='p-5 m-0'>
+                                <Filter className=" w-full m-0 h-10" />
+                                {activeFiltersCount > 0 && (
+                                    <Badge className='absolute ml-10 mb-10 bg-black text-white rounded-full ' variant="secondary">
+                                        {activeFiltersCount}
+                                    </Badge>
+                                )}
+                            </Button>
+                        </DropdownMenuTrigger>
+
+                        {/* Konten dropdown */}
+                        <DropdownMenuContent className="w-56">
+                            <DropdownMenuLabel>Filter Options</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+
+                            {/* Checkbox untuk Producer */}
+                            <DropdownMenuItem
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleCheckboxChange("producer")}
+                            }
+                            >
+                            <span>Producer</span>
+                            {filters.producer && <CheckIcon className="h-4 w-4 text-green-500" />}
+                            </DropdownMenuItem>
+
+                            {/* Checkbox untuk Crew */}
+                            <DropdownMenuItem
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleCheckboxChange("crew");
+                            }}
+                            >
+                            <span>Crew</span>
+                            {filters.crew && <CheckIcon className="h-4 w-4 text-green-500" />}
+                            </DropdownMenuItem>
+
+                            {/* Checkbox untuk Cast */}
+                            <DropdownMenuItem
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleCheckboxChange("cast");
+                            }}
+                            >
+                            <span>Cast</span>
+                            {filters.cast && <CheckIcon className="h-4 w-4 text-green-500" />}
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            {/* Tombol Reset */}
+                            <DropdownMenuItem
+                            className="text-red-500 hover:text-red-700 cursor-pointer"
+                            onClick={(event) => {
+                            event.preventDefault();
+                                resetFilters();
+
+                            }}
+                            >
+                            Reset Filters
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
 
                 </div>

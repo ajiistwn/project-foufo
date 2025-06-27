@@ -5,6 +5,17 @@ import { Head } from '@inertiajs/react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
+import React, { useState } from "react";
+import {
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"; // Shadcn Dropdown
+import { Badge } from "@/components/ui/badge"; // Shadcn Badge
+import { DropdownMenu } from "@/components/ui/dropdown-menu"; // Shadcn Dropdown
+import { CheckIcon, Filter } from "lucide-react";
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -15,58 +26,92 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const data: { section: string; items: { title: string; date: string; image: string; }[]; }[] = [
     {
-    section: "Legal",
-    items: [
-        {
-        title: "FFO_Data Crew",
-        date: "February 4, 2025",
-        image: "https://picsum.photos/60?random=1",
-        },
-    ],
+        section: "Legal",
+        items: [
+            {
+            title: "FFO_Data Crew",
+            date: "February 4, 2025",
+            image: "https://picsum.photos/60?random=1",
+            },
+        ],
     },
     {
-    section: "IP Development",
-    items: [
-        {
-        title: "FFO_Charachter UFO " ,
-        date: "February 4, 2025",
-        image: "https://picsum.photos/60?random=2",
-        },
-        {
-        title: "FFO_Skoci Kecil UFO",
-        date: "February 4, 2025",
-        image: "https://picsum.photos/60?random=3",
-        },
-        {
-        title: "FFO_Global Sinopsis",
-        date: "February 7, 2025",
-        image: "https://picsum.photos/60?random=4",
-        },
-        {
-        title: "FFO_Scene Plot",
-        date: "February 19, 2025",
-        image: "https://picsum.photos/60?random=5",
-        },
-        {
-        title: "FFO_Skenario_Draft 3a",
-        date: "March 24, 2025",
-        image: "https://picsum.photos/60?random=6",
-        },
-    ],
+        section: "IP Development",
+        items: [
+            {
+                title: "FFO_Charachter UFO " ,
+                date: "February 4, 2025",
+                image: "https://picsum.photos/60?random=2",
+            },
+            {
+                title: "FFO_Skoci Kecil UFO",
+                date: "February 4, 2025",
+                image: "https://picsum.photos/60?random=3",
+            },
+            {
+                title: "FFO_Global Sinopsis",
+                date: "February 7, 2025",
+                image: "https://picsum.photos/60?random=4",
+            },
+            {
+                title: "FFO_Scene Plot",
+                date: "February 19, 2025",
+                image: "https://picsum.photos/60?random=5",
+            },
+            {
+                title: "FFO_Skenario_Draft 3a",
+                date: "March 24, 2025",
+                image: "https://picsum.photos/60?random=6",
+            },
+        ],
     },
     {
-    section: "Pre Production",
-    items: [
-        {
-        title: "FFO_Timeline",
-        date: "",
-        image: "https://picsum.photos/60?random=7",
-        },
-    ],
+        section: "Pre Production",
+        items: [
+            {
+                title: "FFO_Timeline",
+                date: "",
+                image: "https://picsum.photos/60?random=7",
+            },
+        ],
     },
-  ];
+];
 
 export default function Assets() {
+    const [filters, setFilters] = useState({
+        finance: false,
+        ipDevelopment: false,
+        legal: false,
+        preProduction: false,
+    });
+
+    // Handler untuk mengubah state checkbox
+    interface Filters {
+        finance: boolean;
+        ipDevelopment: boolean;
+        legal: boolean;
+        preProduction: boolean;
+    }
+
+    const handleCheckboxChange = (filterName: keyof Filters): void => {
+        setFilters((prevFilters: Filters) => ({
+            ...prevFilters,
+            [filterName]: !prevFilters[filterName],
+        }));
+    };
+
+        // Handler untuk reset semua filter
+    const resetFilters = () => {
+            setFilters({
+                finance: false,
+            ipDevelopment: false,
+            legal: false,
+            preProduction: false,
+        });
+    };
+
+    const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Assets" />
@@ -81,17 +126,92 @@ export default function Assets() {
 
                     {/* Search and Filter */}
                 </div>
-                <div className="flex w-full gap-2">
+                <div className="flex w-full justify-between gap-1">
                     <input
                         type="text"
                         placeholder="Search"
-                        className=" px-2 py-2 rounded-lg focus:outline-none focus:ring focus:border-blue-600 border-2 w-[60%]"
+                        className=" px-2 py-2 rounded-lg focus:outline-none focus:ring focus:border-blue-600 border-2 w-full"
                     />
-                    <select className=" px-2 py-2 rounded-lg focus:outline-none focus:ring focus:border-blue-600 border-2 w-[40%]" >
-                        <option value="">Filter</option>
-                        <option value="production">Production</option>
-                        <option value="post-production">Post-Production</option>
-                    </select>
+                    <DropdownMenu>
+                        {/* Trigger untuk membuka dropdown */}
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className='p-5 m-0'>
+                                <Filter className=" w-full m-0 h-10" />
+                                {activeFiltersCount > 0 && (
+                                    <Badge className='absolute ml-10 mb-10 bg-black text-white rounded-full ' variant="secondary">
+                                        {activeFiltersCount}
+                                    </Badge>
+                                )}
+                            </Button>
+                        </DropdownMenuTrigger>
+
+                        {/* Konten dropdown */}
+                        <DropdownMenuContent className="w-56">
+                            <DropdownMenuLabel>Filter Options</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleCheckboxChange("finance");}
+                            }
+                            >
+                            <span>Finance</span>
+                            {filters.finance && <CheckIcon className="h-4 w-4 text-green-500" />}
+                            </DropdownMenuItem>
+
+                            {/* Checkbox untuk Producer */}
+                            <DropdownMenuItem
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleCheckboxChange("ipDevelopment");}
+                            }
+                            >
+                            <span>Ip Development</span>
+                            {filters.ipDevelopment && <CheckIcon className="h-4 w-4 text-green-500" />}
+                            </DropdownMenuItem>
+
+                            {/* Checkbox untuk Crew */}
+                            <DropdownMenuItem
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleCheckboxChange("legal");
+                            }}
+                            >
+                            <span>Legal</span>
+                            {filters.legal && <CheckIcon className="h-4 w-4 text-green-500" />}
+                            </DropdownMenuItem>
+
+                            {/* Checkbox untuk Cast */}
+                            <DropdownMenuItem
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                handleCheckboxChange("preProduction");
+                            }}
+                            >
+                            <span>Pre Production</span>
+                            {filters.preProduction && <CheckIcon className="h-4 w-4 text-green-500" />}
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            {/* Tombol Reset */}
+                            <DropdownMenuItem
+                            className="text-red-500 hover:text-red-700 cursor-pointer"
+                            onClick={(event) => {
+                            event.preventDefault();
+                                resetFilters();
+
+                            }}
+                            >
+                            Reset Filters
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
 
                 </div>
