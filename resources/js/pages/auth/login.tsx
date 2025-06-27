@@ -12,6 +12,7 @@ import AuthLayout from '@/layouts/auth-layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
 
+
 type LoginForm = {
     email: string;
     password: string;
@@ -36,6 +37,11 @@ export default function Login({ status}: LoginProps) {
             onFinish: () => reset('password'),
         });
     };
+
+    const handleGoogleLogin = () => {
+        window.location.href = '/auth/google'; // Redirect ke route Laravel
+    };
+
 
     return (
         <AuthLayout title="Log in to your account" description="Enter your email and password below to log in">
@@ -111,10 +117,7 @@ export default function Login({ status}: LoginProps) {
                             type="button"
                             variant="outline"
                             className="w-full mt-0"
-                            onClick={() => {
-                                // Handle Google login logic here
-                                console.log("Logging in with Google...");
-                            }}
+                            onClick={handleGoogleLogin}
                         >
                             <FontAwesomeIcon className='ms-0.2' icon={faGoogle} />
                             Login with Google
