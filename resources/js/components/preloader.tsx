@@ -32,4 +32,13 @@ const Preloader = () => {
     ) : null;
 };
 
+// Fungsi untuk memicu preloader secara manual
+export const startPreloader = () => {
+    window.dispatchEvent(new Event('inertia:start'));
+};
+
+export const stopPreloader = () => {
+    window.dispatchEvent(new Event('inertia:finish'));
+};
+
 export default Preloader;
