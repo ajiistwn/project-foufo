@@ -20,11 +20,14 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Textarea } from "@/components/ui/textarea"; // Shadcn Textarea
 import { Badge } from "@/components/ui/badge"; // Shadcn Badge
 import { DropdownMenu } from "@/components/ui/dropdown-menu"; // Shadcn Dropdown
-import { CheckIcon, Filter } from "lucide-react";
+import { CheckIcon, Filter, Ellipsis, PencilIcon } from "lucide-react";
 import { useEffect } from 'react';
 import axios from 'axios';
 import { startPreloader, stopPreloader }  from '@/components/preloader';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { toast } from 'react-toastify';
+// import 'react-toastify/dist/ReactToastify.css';
+// import { Check } from 'lucide-react'; // Shadcn Check Icon
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -61,12 +64,14 @@ export default function Crewandcast() {
 
     const [crewAndCasts, setCrewAndCasts] = useState<Record<string, Record<string, Member>>>(() => ({}));
     // const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState("");
     // const [selectedMemberId, setSelectedMemberId] = useState(null);
     const [crewDetails, setCrewDetails] = useState<CrewDetails | null>(null);
     const [openSheet, setOpenSheet] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isAddCrewSheetOpen, setIsAddCrewSheetOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const [isDeleteDropDown, setIsDeleteDropDown] = useState(false);
 
     const [newCrew, setNewCrew] = useState<{
         nick_name: string;
@@ -98,11 +103,21 @@ export default function Crewandcast() {
         image: null,
     });
 
+    const [imagePreview, setImagePreview] = useState<string | ArrayBuffer | null>(null);
 
+    const [filters, setFilters] = useState({
+        crew: false,
+        cast: false,
+    });
 
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
             setNewCrew((prev) => ({ ...prev, image: file }));
         } else {
             setNewCrew((prev) => ({ ...prev, image: null }));
@@ -110,23 +125,53 @@ export default function Crewandcast() {
     };
 
     useEffect(() => {
-        // URL API aplikasi inti
         const apiUrl = 'http://localhost:8000/api/crew-and-cast';
+
         startPreloader();
-        // Ambil data dari API
-        axios.get(apiUrl)
+
+        // Prepare filter params
+        const params: { project_id: number, search?: string, filter?: { crew?: boolean; cast?: boolean } } = {
+            project_id: 2,
+        };
+
+        // Tambahkan search term jika ada
+        if (search.trim()) {
+            params.search = search.trim();
+        }
+
+        // Tambahkan filter crew / cast jika aktif
+        if (filters.crew || filters.cast) {
+            params.filter = {};
+            if (filters.crew) params.filter.crew = true;
+            if (filters.cast) params.filter.cast = true;
+        }
+
+        axios.get(apiUrl, { params })
             .then((response) => {
-                console.log('Data dari API:', response); // Console log data
-                setCrewAndCasts(response.data); // Simpan data ke state
-                stopPreloader(); // Stop preloader
+                setCrewAndCasts(response.data);
+                // console.log(response.data)
+                stopPreloader();
             })
             .catch((err) => {
-                // console.error('Error fetching data:', err);
                 setError(err.message);
-                console.error('Error message:', error); // Console log error message
+                console.error('Error fetching data:', err);
                 stopPreloader();
             });
-    }, []);
+    }, [search, filters]);
+
+    // useEffect(() => {
+    //     const handleClickOutside = (e: MouseEvent) => {
+    //         const target = e.target as HTMLElement;
+    //         if (!target.closest('.toast-container')) {
+    //             console.log("Clicked outside toast");
+    //         }
+    //     };
+
+    //     document.addEventListener('click', handleClickOutside);
+    //     return () => {
+    //         document.removeEventListener('click', handleClickOutside);
+    //     };
+    // }, []);
 
      // Fetch crew details based on ID
     const fetchCrewDetails = async (id:number) => {
@@ -134,7 +179,7 @@ export default function Crewandcast() {
         try {
             const response = await axios.get(`http://localhost:8000/api/crew-and-cast/${id}`); // Replace with your API endpoint
             setCrewDetails(response.data);
-            console.log(response.data);
+            // console.log(response.data);
         } catch (error) {
             console.error("Error fetching crew details:", error);
         } finally {
@@ -145,12 +190,6 @@ export default function Crewandcast() {
         // setSelectedMemberId(id);
         fetchCrewDetails(id);
     };
-
-
-    const [filters, setFilters] = useState({
-        crew: false,
-        cast: false,
-    });
 
     // Handler untuk mengubah state checkbox
     interface Filters {
@@ -179,15 +218,26 @@ export default function Crewandcast() {
 
         try {
             const formData = new FormData();
+            formData.append("project_id", "2");
             formData.append("nick_name", newCrew.nick_name);
             formData.append("job_title", newCrew.job_title);
             formData.append("full_name", newCrew.full_name || ''); // Tambahkan default value jika kosong
             formData.append("email", newCrew.email || '');
             formData.append("phone", newCrew.phone || '');
+            formData.append("date_birth", newCrew.date_birth || '');
+            formData.append("home_town", newCrew.home_town || '');
+            formData.append("group", newCrew.group || '');
+            formData.append("category", newCrew.category || '');
+            formData.append("character_name", newCrew.character_name || '');
+            formData.append("description", newCrew.description || '');
             formData.append("address", newCrew.address || '');
             if (newCrew.image instanceof globalThis.File) {
                 formData.append("image", newCrew.image);
             }
+
+
+            console.log(formData.get("category"));
+
 
             const response = await axios.post("http://localhost:8000/api/crew-and-cast", formData, {
                 headers: {
@@ -195,7 +245,7 @@ export default function Crewandcast() {
                 },
             });
 
-            console.log("Crew added successfully:", response.data);
+            // console.log("Crew added successfully:", response.data);
             setIsAddCrewSheetOpen(false); // Close the sheet
             setCrewAndCasts((prev) => {
                 const updatedCrew = { ...prev };
@@ -205,6 +255,8 @@ export default function Crewandcast() {
                 };
                 return updatedCrew;
             });
+
+            toast.success('Crew added successfully!');
 
             // Reset form state
             setNewCrew({
@@ -222,7 +274,10 @@ export default function Crewandcast() {
                 description: "",
                 image: null,
             });
+
+
         } catch (error) {
+            toast.error('Failed to add crew. Please try again.');
             if (axios.isAxiosError(error)) {
                 console.error("Axios error:", error.response?.data);
             } else {
@@ -232,10 +287,59 @@ export default function Crewandcast() {
             setLoading(false);
         }
     };
+
+
+    const handleDelete = async (id: number | undefined) => {
+        if (!id) {
+            console.error("No crew ID provided for deletion.");
+            return;
+        }
+        try {
+            const response = await axios.delete(`http://localhost:8000/api/crew-and-cast/${id}`);
+            console.log("Crew deleted successfully:", response.data);
+
+            // Update state untuk menghapus crew dari tampilan
+            setCrewAndCasts((prevCrews) => {
+                const updatedCrews = { ...prevCrews };
+                for (const group in updatedCrews) {
+                    if (updatedCrews[group][id]) {
+                        delete updatedCrews[group][id];
+                        break;
+                    }
+                }
+                return updatedCrews;
+            });
+
+            // Close the Sheet jika crew yang dihapus sedang ditampilkan
+            if (crewDetails?.id === id) {
+                setOpenSheet(false); // Tutup Sheet
+                setCrewDetails(null); // Reset detail crew
+            }
+
+            // Tampilkan notifikasi sukses
+            toast.success('Crew deleted successfully!');
+        } catch (error) {
+            console.error("Error deleting crew:", error);
+
+            // Tampilkan notifikasi gagal
+            toast.error('Failed to delete crew. Please try again.');
+        }
+
+        // Tampilkan toast konfirmasi
+
+    };
+
+
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
+            {/* Tampilkan error jika ada */}
+            {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                    <span className="block sm:inline">{error}</span>
+                </div>
+            )}
             <Head title="Crew and Cast" />
             <Sheet open={openSheet} onOpenChange={setOpenSheet}>
                 <div className=" min-h-screen py-4 px-6 space-y-6">
@@ -254,6 +358,8 @@ export default function Crewandcast() {
                             type="text"
                             placeholder="Search"
                             className=" px-2 py-2 rounded-lg focus:outline-none focus:ring focus:border-blue-600 border-2 w-[100%]"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
                         />
 
                         <DropdownMenu>
@@ -342,7 +448,7 @@ export default function Crewandcast() {
                 </div>
 
 
-                <SheetContent className='gap-0'>
+                <SheetContent className='gap-0 w-full'>
                     <SheetHeader className='m-0'>
                         <SheetTitle className='text-center'>{loading ? 'Loading...' : crewDetails?.nick_name || ''}</SheetTitle>
                     </SheetHeader>
@@ -357,7 +463,7 @@ export default function Crewandcast() {
                             <img
                             src={crewDetails.image ?? "/logoFoufo.png"}
                             alt={crewDetails.full_name}
-                            className="w-full h-48 object-cover mb-4"
+                            className="w-full h-66 object-cover mb-4"
                             />
 
                             {/* Crew details */}
@@ -367,7 +473,30 @@ export default function Crewandcast() {
 
                                 {/* Edit button */}
                                 {/* <button className="bg-pink-500 text-white px-3 py-1 rounded-md">Edit</button>
-                                <button className="bg-gray-500 text-white px-3 py-1 rounded-md">...</button> */}
+                                <button className="bg-gray-500 text-white px-3 py-1 rounded-md"></button> */}
+                                <div className="flex justify-center gap-2 mb-4 ">
+                                    <Button variant="outline">
+                                        <PencilIcon className="mr-2 w-4 h-4" /> Edit
+                                    </Button>
+                                    <DropdownMenu open={isDeleteDropDown} onOpenChange={setIsDeleteDropDown}>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline">
+                                            <Ellipsis />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuItem
+                                            className="text-red-500 hover:text-red-700 cursor-pointer"
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                handleDelete(crewDetails?.id); // Panggil fungsi delete dengan ID crew
+                                            }}
+                                        >
+                                            Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                </div>
                             </div>
 
                             <ul className="p-4 *:mt-2 space-y-2">
@@ -461,7 +590,7 @@ export default function Crewandcast() {
                 <SheetContent className="w-full  overflow-y-auto pb-10" >
                     <SheetHeader>
                         <SheetTitle className="text-center">Add Crew or Cast</SheetTitle>
-                        <SheetDescription className='text-center'>
+                        <SheetDescription className='text-center hidden'>
                             Section for adding crew or cast data.
                         </SheetDescription>
                     </SheetHeader>
@@ -469,7 +598,7 @@ export default function Crewandcast() {
                     <form onSubmit={handleAddCrewSubmit} className="space-y-4 px-6">
                         {/* Nick Name */}
                         <div className="space-y-2">
-                            <Label htmlFor="nick_name">Nick Name</Label>
+                            <Label htmlFor="nick_name">Nick Name<span className="text-red-500 ml-1">*</span></Label>
                             <Input
                                 id="nick_name"
                                 type="text"
@@ -488,7 +617,6 @@ export default function Crewandcast() {
                                 type="text"
                                 value={newCrew.job_title}
                                 onChange={(e) => setNewCrew({ ...newCrew, job_title: e.target.value })}
-                                required
                                 placeholder='Enter Job Title'
                             />
                         </div>
@@ -580,10 +708,11 @@ export default function Crewandcast() {
 
                         {/* Category (Crew or Cast) */}
                         <div className="space-y-2">
-                            <Label>Category</Label>
+                            <Label>Category<span className="text-red-500 ml-1">*</span></Label>
                             <Select
                                 value={newCrew.category}
                                 onValueChange={(value) => setNewCrew({ ...newCrew, category: value })}
+                                required
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select Category" />
@@ -629,6 +758,17 @@ export default function Crewandcast() {
                                 onChange={handleImageUpload}
                             />
                         </div>
+
+                         {/* Preview Image */}
+                        {imagePreview && (
+                            <div className="mt-2">
+                                <img
+                                    src={typeof imagePreview === 'string' ? imagePreview : ''}
+                                    alt="Preview"
+                                    className="w-32 h-32 object-cover rounded-md border"
+                                />
+                            </div>
+                        )}
 
                         {/* Submit Button */}
                         <Button type="submit" className="w-full bg-purple-600 text-white mt-5">

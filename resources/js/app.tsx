@@ -54,6 +54,7 @@ createInertiaApp({
                     draggable
                     pauseOnHover
                     transition={Slide}
+                    style={{ zIndex: 9999 }}
                 />
             </>
         );
