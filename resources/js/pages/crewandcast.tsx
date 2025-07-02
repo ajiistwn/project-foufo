@@ -14,6 +14,18 @@ import {
 
 } from "@/components/ui/dropdown-menu"; // Shadcn Dropdown
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    // AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"; // Shadcn Alert Dialog
+
 import { Input } from "@/components/ui/input"; // Shadcn Input
 import { Label } from "@/components/ui/label"; // Shadcn Label
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"; // Shadcn Select
@@ -26,6 +38,8 @@ import axios from 'axios';
 import { startPreloader, stopPreloader }  from '@/components/preloader';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { toast } from 'react-toastify';
+// import qs from 'qs'; // Untuk mengirim data form dengan multipart/form-data
+
 // import 'react-toastify/dist/ReactToastify.css';
 // import { Check } from 'lucide-react'; // Shadcn Check Icon
 
@@ -51,8 +65,7 @@ export default function Crewandcast() {
         date_birth: string;
         character_name: string;
         description: string;
-
-        image: string;
+        image: string | File | null;
         nick_name: string;
         job_title: string;
         full_name: string;
@@ -60,6 +73,8 @@ export default function Crewandcast() {
         email: string;
         phone: string;
         address: string;
+        group: string;
+        category: string;
     }
 
     const [crewAndCasts, setCrewAndCasts] = useState<Record<string, Record<string, Member>>>(() => ({}));
@@ -72,6 +87,9 @@ export default function Crewandcast() {
     const [isAddCrewSheetOpen, setIsAddCrewSheetOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [isDeleteDropDown, setIsDeleteDropDown] = useState(false);
+    const [isUpdateCrewSheetOpen, setIsUpdateCrewSheetOpen] = useState(false);
+    const [crewToUpdate, setCrewToUpdate] = useState<CrewDetails | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const [newCrew, setNewCrew] = useState<{
         nick_name: string;
@@ -105,6 +123,7 @@ export default function Crewandcast() {
 
     const [imagePreview, setImagePreview] = useState<string | ArrayBuffer | null>(null);
 
+
     const [filters, setFilters] = useState({
         crew: false,
         cast: false,
@@ -113,14 +132,21 @@ export default function Crewandcast() {
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
+            // Perbarui state newCrew dengan file gambar
+            setNewCrew((prev) => ({ ...prev, image: file }));
+            setCrewToUpdate((prev) => ({ ...prev!, image: file }));
+
+            // Generate preview gambar
             const reader = new FileReader();
             reader.onload = () => {
                 setImagePreview(reader.result as string);
             };
             reader.readAsDataURL(file);
-            setNewCrew((prev) => ({ ...prev, image: file }));
         } else {
+            // Reset state jika tidak ada file yang dipilih
             setNewCrew((prev) => ({ ...prev, image: null }));
+            setCrewToUpdate((prev) => ({ ...prev!, image: null }));
+            setImagePreview(null);
         }
     };
 
@@ -159,19 +185,6 @@ export default function Crewandcast() {
             });
     }, [search, filters]);
 
-    // useEffect(() => {
-    //     const handleClickOutside = (e: MouseEvent) => {
-    //         const target = e.target as HTMLElement;
-    //         if (!target.closest('.toast-container')) {
-    //             console.log("Clicked outside toast");
-    //         }
-    //     };
-
-    //     document.addEventListener('click', handleClickOutside);
-    //     return () => {
-    //         document.removeEventListener('click', handleClickOutside);
-    //     };
-    // }, []);
 
      // Fetch crew details based on ID
     const fetchCrewDetails = async (id:number) => {
@@ -236,28 +249,17 @@ export default function Crewandcast() {
             }
 
 
-            console.log(formData.get("category"));
-
 
             const response = await axios.post("http://localhost:8000/api/crew-and-cast", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
+
                 },
             });
 
             // console.log("Crew added successfully:", response.data);
             setIsAddCrewSheetOpen(false); // Close the sheet
-            setCrewAndCasts((prev) => {
-                const updatedCrew = { ...prev };
-                updatedCrew["New Group"] = {
-                    ...(updatedCrew["New Group"] || {}),
-                    [response.data.id]: response.data,
-                };
-                return updatedCrew;
-            });
-
-            toast.success('Crew added successfully!');
-
+            console.log("Crew added successfully:", response);
             // Reset form state
             setNewCrew({
                 nick_name: "",
@@ -275,13 +277,18 @@ export default function Crewandcast() {
                 image: null,
             });
 
+            setImagePreview(null); // Reset image preview
+            await fetchAllCrews();
+            toast.success('Crew added successfully!');
 
         } catch (error) {
-            toast.error('Failed to add crew. Please try again.');
+            // toast.error('Failed to add crew. Please try again.');
             if (axios.isAxiosError(error)) {
+                toast.error(error.response?.data?.message || 'An error occurred while adding crew.');
                 console.error("Axios error:", error.response?.data);
             } else {
                 console.error("Unexpected error:", error);
+                toast.error('An unexpected error occurred.');
             }
         } finally {
             setLoading(false);
@@ -299,20 +306,11 @@ export default function Crewandcast() {
             console.log("Crew deleted successfully:", response.data);
 
             // Update state untuk menghapus crew dari tampilan
-            setCrewAndCasts((prevCrews) => {
-                const updatedCrews = { ...prevCrews };
-                for (const group in updatedCrews) {
-                    if (updatedCrews[group][id]) {
-                        delete updatedCrews[group][id];
-                        break;
-                    }
-                }
-                return updatedCrews;
-            });
+            await fetchAllCrews();
 
-            // Close the Sheet jika crew yang dihapus sedang ditampilkan
+            // Tutup modal detail jika crew yang dihapus sedang ditampilkan
             if (crewDetails?.id === id) {
-                setOpenSheet(false); // Tutup Sheet
+                setOpenSheet(false); // Tutup modal detail
                 setCrewDetails(null); // Reset detail crew
             }
 
@@ -329,6 +327,113 @@ export default function Crewandcast() {
 
     };
 
+    const handleEditClick = () => {
+        if (crewDetails) {
+            setCrewToUpdate(crewDetails); // Set data crew untuk di-update
+            setIsUpdateCrewSheetOpen(true); // Buka sheet update
+        }
+    };
+
+    const handleUpdateCrewSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+            const formData = new FormData(); // Gunakan FormData untuk mendukung file upload
+            formData.append("_method", "PUT"); // Simulasikan metode PUT
+            formData.append("project_id", "2");
+            formData.append("nick_name", crewToUpdate?.nick_name || "");
+            formData.append("job_title", crewToUpdate?.job_title || "");
+            formData.append("full_name", crewToUpdate?.full_name || "");
+            formData.append("email", crewToUpdate?.email || "");
+            formData.append("phone", crewToUpdate?.phone || "");
+            formData.append("address", crewToUpdate?.address || "");
+            formData.append("date_birth", crewToUpdate?.date_birth || "");
+            formData.append("home_town", crewToUpdate?.home_town || "");
+            formData.append("group", crewToUpdate?.group || "");
+            formData.append("category", crewToUpdate?.category || "");
+            formData.append("character_name", crewToUpdate?.character_name || "");
+            formData.append("description", crewToUpdate?.description || "");
+
+            // Tambahkan gambar jika ada
+           // Tambahkan gambar jika ada
+            if (crewToUpdate && crewToUpdate.image instanceof File) {
+                formData.append("image", crewToUpdate.image);
+            } else if (typeof crewToUpdate?.image === "string") {
+                // Jika image adalah URL string, tambahkan sebagai field biasa
+                formData.append("image", crewToUpdate.image);
+            }
+            console.log("Form data to be sent:", formData.get("image"), crewToUpdate?.image);
+
+            // Kirim data menggunakan axios dengan multipart/form-data
+            const response = await axios.post(
+                `http://localhost:8000/api/crew-and-cast/${crewToUpdate?.id}`,
+                formData,
+                {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                }
+            );
+
+            console.log("Crew updated successfully:", response.data);
+
+            // Perbarui data detail crew
+            if (crewToUpdate?.id) {
+                fetchCrewDetails(crewToUpdate.id);
+            }
+
+            await fetchAllCrews();
+
+            toast.success("Crew updated successfully!");
+            setIsUpdateCrewSheetOpen(false); // Tutup sheet
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                toast.error(error.response?.data?.message || "An error occurred while updating crew.");
+            } else {
+                toast.error("An unexpected error occurred.");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (crewDetails?.image) {
+            if (typeof crewDetails.image === 'string') {
+                // setInitialImage(crewDetails.image); // Set URL gambar dari database
+                setImagePreview(crewDetails.image); // Tampilkan preview gambar dari database
+            } else if (crewDetails.image instanceof File) {
+                const imageUrl = URL.createObjectURL(crewDetails.image);
+                // setInitialImage(imageUrl); // Set URL preview dari objek File
+                setImagePreview(imageUrl); // Tampilkan preview gambar dari objek File
+            }
+        } else {
+            // setInitialImage(null); // Reset state jika tidak ada gambar
+            // setImagePreview(null); // Reset preview jika tidak ada gambar
+        }
+    }, [crewDetails]);
+
+    const handleDeleteImage = () => {
+        setImagePreview(null); // Reset preview
+        setNewCrew((prev) => ({ ...prev, image: null })); // Reset file gambar di state
+        setCrewToUpdate((prev) => ({ ...prev!, image: null })); // Reset file gambar di state crew yang akan diupdate
+    };
+
+    const fetchAllCrews = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get("http://localhost:8000/api/crew-and-cast", {
+                params: { project_id: 2 }, // Sesuaikan dengan parameter filter Anda
+            });
+            setCrewAndCasts(response.data); // Perbarui state list crew dengan data terbaru
+        } catch (error) {
+            console.error("Error fetching all crews:", error);
+            toast.error("Failed to fetch updated crew list.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;
 
@@ -344,7 +449,11 @@ export default function Crewandcast() {
             <Sheet open={openSheet} onOpenChange={setOpenSheet}>
                 <div className=" min-h-screen py-4 px-6 space-y-6">
                     <div className="flex justify-between items-center mb-4">
-                    <Button className="bg-purple-600 text-white px-4 py-2 rounded-md flex items-center" onClick={() => setIsAddCrewSheetOpen(true)}>
+                    <Button className="bg-purple-600 text-white px-4 py-2 rounded-md flex items-center" onClick={() => {
+                        setIsAddCrewSheetOpen(true);
+                        setImagePreview(null);
+                        history.pushState({ sheet: "add-crew" }, "Add Crew", "/add-crew");
+                    }}>
                         {/* <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" />
                         </svg> */}
@@ -461,7 +570,7 @@ export default function Crewandcast() {
                         <div className=''>
                             {/* Crew profile image */}
                             <img
-                            src={crewDetails.image ?? "/logoFoufo.png"}
+                            src={typeof crewDetails.image === 'string' ? crewDetails.image : crewDetails.image ? URL.createObjectURL(crewDetails.image) : "/logoFoufo.png"}
                             alt={crewDetails.full_name}
                             className="w-full h-66 object-cover mb-4"
                             />
@@ -475,7 +584,7 @@ export default function Crewandcast() {
                                 {/* <button className="bg-pink-500 text-white px-3 py-1 rounded-md">Edit</button>
                                 <button className="bg-gray-500 text-white px-3 py-1 rounded-md"></button> */}
                                 <div className="flex justify-center gap-2 mb-4 ">
-                                    <Button variant="outline">
+                                    <Button variant="outline" onClick={handleEditClick}>
                                         <PencilIcon className="mr-2 w-4 h-4" /> Edit
                                     </Button>
                                     <DropdownMenu open={isDeleteDropDown} onOpenChange={setIsDeleteDropDown}>
@@ -489,7 +598,7 @@ export default function Crewandcast() {
                                             className="text-red-500 hover:text-red-700 cursor-pointer"
                                             onClick={(event) => {
                                                 event.preventDefault();
-                                                handleDelete(crewDetails?.id); // Panggil fungsi delete dengan ID crew
+                                                setIsDeleteDialogOpen(true); // Panggil fungsi delete dengan ID crew
                                             }}
                                         >
                                             Delete
@@ -759,14 +868,23 @@ export default function Crewandcast() {
                             />
                         </div>
 
-                         {/* Preview Image */}
+                        {/* Preview Image */}
                         {imagePreview && (
-                            <div className="mt-2">
+                            <div className="mt-2 relative">
+                                {/* Gambar Preview */}
                                 <img
                                     src={typeof imagePreview === 'string' ? imagePreview : ''}
                                     alt="Preview"
                                     className="w-32 h-32 object-cover rounded-md border"
                                 />
+                                {/* Tombol Silang */}
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteImage} // Hapus gambar saat tombol diklik
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                                >
+                                    X
+                                </button>
                             </div>
                         )}
 
@@ -777,6 +895,280 @@ export default function Crewandcast() {
                     </form>
                 </SheetContent>
             </Sheet>
+
+            <Sheet open={isUpdateCrewSheetOpen} onOpenChange={setIsUpdateCrewSheetOpen}>
+                <SheetContent className="w-full overflow-y-auto pb-10">
+                    <SheetHeader>
+                        <SheetTitle className="text-center">Update Crew or Cast</SheetTitle>
+                    </SheetHeader>
+                    <SheetDescription className='text-center hidden'>
+                        Update information for the selected crew or cast member.
+                    </SheetDescription>
+                    <form onSubmit={handleUpdateCrewSubmit} className="space-y-4 px-6">
+                        {/* Nick Name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="nick_name">Nick Name<span className="text-red-500 ml-1">*</span></Label>
+                            <Input
+                                id="nick_name"
+                                type="text"
+                                value={crewToUpdate?.nick_name || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        nick_name: e.target.value,
+                                    })
+                                }
+                                required
+                                placeholder="Enter Nick Name"
+                            />
+                        </div>
+
+                        {/* Job Title */}
+                        <div className="space-y-2">
+                            <Label htmlFor="job_title">Job Title</Label>
+                            <Input
+                                id="job_title"
+                                type="text"
+                                value={crewToUpdate?.job_title || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        job_title: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Job Title"
+                            />
+                        </div>
+
+                        {/* Full Name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="full_name">Full Name</Label>
+                            <Input
+                                id="full_name"
+                                type="text"
+                                value={crewToUpdate?.full_name || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        full_name: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Full Name"
+                            />
+                        </div>
+
+                        {/* Email */}
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={crewToUpdate?.email || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        email: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Email"
+                            />
+                        </div>
+
+                        {/* Phone */}
+                        <div className="space-y-2">
+                            <Label htmlFor="phone">Phone</Label>
+                            <Input
+                                id="phone"
+                                type="text"
+                                value={crewToUpdate?.phone || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        phone: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Phone Number"
+                            />
+                        </div>
+
+                        {/* Address */}
+                        <div className="space-y-2">
+                            <Label htmlFor="address">Address</Label>
+                            <Input
+                                id="address"
+                                type="text"
+                                value={crewToUpdate?.address || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        address: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Address"
+                            />
+                        </div>
+
+                        {/* Date of Birth */}
+                        <div className="space-y-2">
+                            <Label htmlFor="date_birth">Date of Birth</Label>
+                            <Input
+                                id="date_birth"
+                                type="date"
+                                className='block w-full'
+                                value={crewToUpdate?.date_birth || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        date_birth: e.target.value,
+                                    })
+                                }
+                                placeholder="Select Date of Birth"
+                            />
+                        </div>
+
+                        {/* Home Town */}
+                        <div className="space-y-2">
+                            <Label htmlFor="home_town">Home Town</Label>
+                            <Input
+                                id="home_town"
+                                type="text"
+                                value={crewToUpdate?.home_town || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        home_town: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Home Town"
+                            />
+                        </div>
+
+                        {/* Group */}
+                        <div className="space-y-2">
+                            <Label htmlFor="group">Group</Label>
+                            <Input
+                                id="group"
+                                type="text"
+                                value={crewToUpdate?.group || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        group: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Group"
+                            />
+                        </div>
+
+                        {/* Category (Crew or Cast) */}
+                        <div className="space-y-2">
+                            <Label>Category<span className="text-red-500 ml-1">*</span></Label>
+                            <Select
+                                value={crewToUpdate?.category || ""}
+                                onValueChange={(value) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        category: value,
+                                    })
+                                }
+                                required
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="crew">Crew</SelectItem>
+                                    <SelectItem value="cast">Cast</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Character Name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="character_name">Character Name</Label>
+                            <Input
+                                id="character_name"
+                                type="text"
+                                value={crewToUpdate?.character_name || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        character_name: e.target.value,
+                                    })
+                                }
+                                placeholder="Enter Character Name"
+                            />
+                        </div>
+
+                        {/* Character Description */}
+                        <div className="space-y-2">
+                            <Label htmlFor="description">Character Description</Label>
+                            <Textarea
+                                id="description"
+                                value={crewToUpdate?.description || ""}
+                                onChange={(e) =>
+                                    setCrewToUpdate({
+                                        ...crewToUpdate!,
+                                        description: e.target.value,
+                                    })
+                                }
+                                rows={3}
+                                placeholder="Enter Character Description"
+                            />
+                        </div>
+
+                        {/* Image Upload */}
+                        <div className="space-y-2">
+                            <Label htmlFor="image">Image Upload</Label>
+                            <Input
+                                id="image"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                            />
+                        </div>
+
+                        {/* Preview Image */}
+                        {/* Preview Image */}
+                        {imagePreview && (
+                            <div className="mt-2 relative">
+                                <img
+                                    src={typeof imagePreview === "string" ? imagePreview : ""}
+                                    alt="Preview"
+                                    className="w-32 h-32 object-cover rounded-md border"
+                                />
+                                {/* Tombol Hapus Gambar */}
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteImage}
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                                >
+                                    X
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Submit Button */}
+                        <Button type="submit" className="w-full bg-purple-600 text-white mt-5">
+                            {loading ? "Updating..." : "Update"}
+                        </Button>
+                    </form>
+                </SheetContent>
+            </Sheet>
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    </AlertDialogHeader>
+                        <AlertDialogDescription>
+                            This action cannot be undone. The selected crew member will be permanently deleted.
+                        </AlertDialogDescription>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(crewDetails?.id)}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
         </AppLayout>
     );
